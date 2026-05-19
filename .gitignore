@@ -1,0 +1,12 @@
+.env
+__pycache__/
+*.pyc
+.venv/
+.env.local
+.env.*
+.pytest_cache/
+.dist/
+.build/
+.*md
+fastapi_endpoints_dashboard.md
+frontend_api_guide.md

@@ -1,0 +1,11 @@
+services:
+  api:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      MODEL_PATH: /app/models/modelo_notasv1.pkl
+      MODEL_REQUIRED: "true"
+      CORS_ORIGINS: http://localhost:3000
+    volumes:
+      - ./models:/app/models
