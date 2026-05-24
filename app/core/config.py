@@ -6,7 +6,7 @@ class Settings(BaseSettings):
     app_name: str = "enaho-ml-api"
     app_env: str = "dev"
     log_level: str = "INFO"
-    model_path: str = "models/modelo_notasv1.pkl"
+    model_path: str = "models/modelo_xgboost_final.pkl"
     panel_path: str = "datasets/panel_procesado.parquet"
     model_required: bool = True
     panel_required: bool = True

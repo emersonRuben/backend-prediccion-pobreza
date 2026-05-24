@@ -10,6 +10,7 @@ class ModelBundle:
     imputer: Any | None
     features: list[str]
     thresholds: dict[str, float]
+    umbrales_dinamicos: dict[int, Any] | None
     metrics: dict[str, Any] | None
     test_year: int | None
 
@@ -20,7 +21,7 @@ class ModelStore:
     @classmethod
     def set_bundle(cls, bundle: ModelBundle) -> None:
         cls._bundle = bundle
-
+        
     @classmethod
     def get_bundle(cls) -> ModelBundle:
         if cls._bundle is None:
@@ -52,18 +53,20 @@ def load_model(path: str) -> ModelBundle:
         estimator = payload.get("modelo") or _extract_estimator(payload)
         imputer = payload.get("imputer")
         features = list(payload.get("features") or [])
-        thresholds = {
-            "umbral": float(payload.get("umbral")) if payload.get("umbral") is not None else 0.5,
-            "umbral_f1": float(payload.get("umbral_f1")) if payload.get("umbral_f1") is not None else 0.5,
-            "umbral_r80": float(payload.get("umbral_r80")) if payload.get("umbral_r80") is not None else 0.5,
-        }
+        thresholds = {}
+        for key in ("umbral", "umbral_f1", "umbral_r80"):
+            value = payload.get(key)
+            if value is not None:
+                thresholds[key] = float(value)
         metrics = payload.get("metricas_test")
         test_year = payload.get("anio_test")
+        umbrales_dinamicos = payload.get("umbrales_dinamicos")
         return ModelBundle(
             estimator=estimator,
             imputer=imputer,
             features=features,
             thresholds=thresholds,
+            umbrales_dinamicos=umbrales_dinamicos,
             metrics=metrics,
             test_year=int(test_year) if test_year is not None else None,
         )
@@ -73,7 +76,8 @@ def load_model(path: str) -> ModelBundle:
         estimator=estimator,
         imputer=None,
         features=[],
-        thresholds={"umbral": 0.5, "umbral_f1": 0.5, "umbral_r80": 0.5},
+        thresholds={},
+        umbrales_dinamicos=None,
         metrics=None,
         test_year=None,
     )

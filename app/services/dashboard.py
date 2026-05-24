@@ -142,17 +142,18 @@ def summarize_year(anio: int) -> dict[str, Any]:
         raise ValueError("No data for requested year")
 
     probabilities = _predict_probabilities(filtered)
-    threshold_total = _get_threshold("umbral")
+    from app.core.thresholds import get_dynamic_threshold_array
+    threshold_total_arr = get_dynamic_threshold_array(filtered, default_val=_get_threshold("umbral"))
     threshold_extreme = _get_threshold("umbral_r80")
 
     expansion_col = _get_expansion_column(filtered)
     weights = filtered[expansion_col].to_numpy(dtype=float) if expansion_col else None
 
-    total_rate = _weighted_mean((probabilities >= threshold_total).astype(float), weights)
+    total_rate = _weighted_mean((probabilities >= threshold_total_arr).astype(float), weights)
     extreme_rate = _weighted_mean((probabilities >= threshold_extreme).astype(float), weights)
 
     total_households = _weighted_sum(np.ones_like(probabilities), weights)
-    poor_households = _weighted_sum((probabilities >= threshold_total).astype(float), weights)
+    poor_households = _weighted_sum((probabilities >= threshold_total_arr).astype(float), weights)
 
     previous_year = anio - 1
     variation = None
@@ -178,14 +179,15 @@ def regional_rates(anio: int, top_n: int | None = None) -> dict[str, Any]:
 
     department_col = settings.department_id_column
     name_col = _get_department_name_column(filtered)
-    threshold_total = _get_threshold("umbral")
+    from app.core.thresholds import get_dynamic_threshold_array
 
     results = []
     for department_id, group in filtered.groupby(department_col):
         probabilities = _predict_probabilities(group)
+        threshold_total_arr = get_dynamic_threshold_array(group, default_val=_get_threshold("umbral"))
         expansion_col = _get_expansion_column(group)
         weights = group[expansion_col].to_numpy(dtype=float) if expansion_col else None
-        rate = _weighted_mean((probabilities >= threshold_total).astype(float), weights)
+        rate = _weighted_mean((probabilities >= threshold_total_arr).astype(float), weights)
         department_name = None
         if name_col:
             department_name = group[name_col].iloc[0]
@@ -222,7 +224,7 @@ def national_trend() -> dict[str, Any]:
 
 def area_trend() -> dict[str, Any]:
     panel = _ensure_panel()
-    threshold_total = _get_threshold("umbral")
+    from app.core.thresholds import get_dynamic_threshold_array
     area_col = settings.area_column
 
     data = []
@@ -232,9 +234,10 @@ def area_trend() -> dict[str, Any]:
             continue
 
         total_prob = _predict_probabilities(subset)
+        threshold_total_arr = get_dynamic_threshold_array(subset, default_val=_get_threshold("umbral"))
         expansion_col = _get_expansion_column(subset)
         weights_total = subset[expansion_col].to_numpy(dtype=float) if expansion_col else None
-        total_rate = _weighted_mean((total_prob >= threshold_total).astype(float), weights_total)
+        total_rate = _weighted_mean((total_prob >= threshold_total_arr).astype(float), weights_total)
 
         urban_rate = 0.0
         rural_rate = 0.0
@@ -243,9 +246,10 @@ def area_trend() -> dict[str, Any]:
             if area_subset.empty:
                 continue
             probs = _predict_probabilities(area_subset)
-            expansion_col = _get_expansion_column(area_subset)
-            weights = area_subset[expansion_col].to_numpy(dtype=float) if expansion_col else None
-            rate = _weighted_mean((probs >= threshold_total).astype(float), weights)
+            area_threshold_arr = get_dynamic_threshold_array(area_subset, default_val=_get_threshold("umbral"))
+            expansion_col_a = _get_expansion_column(area_subset)
+            weights = area_subset[expansion_col_a].to_numpy(dtype=float) if expansion_col_a else None
+            rate = _weighted_mean((probs >= area_threshold_arr).astype(float), weights)
             if label == "urban":
                 urban_rate = rate
             else:
@@ -265,7 +269,7 @@ def area_trend() -> dict[str, Any]:
 
 def population_trend() -> dict[str, Any]:
     panel = _ensure_panel()
-    threshold_total = _get_threshold("umbral")
+    from app.core.thresholds import get_dynamic_threshold_array
     threshold_extreme = _get_threshold("umbral_r80")
 
     data = []
@@ -275,13 +279,14 @@ def population_trend() -> dict[str, Any]:
             continue
 
         probabilities = _predict_probabilities(subset)
+        threshold_total_arr = get_dynamic_threshold_array(subset, default_val=_get_threshold("umbral"))
         expansion_col = _get_expansion_column(subset)
         weights = subset[expansion_col].to_numpy(dtype=float) if expansion_col else None
 
         poor_extreme = _weighted_sum((probabilities >= threshold_extreme).astype(float), weights)
-        poor_total = _weighted_sum((probabilities >= threshold_total).astype(float), weights)
+        poor_total = _weighted_sum((probabilities >= threshold_total_arr).astype(float), weights)
         poor_no_extreme = max(poor_total - poor_extreme, 0.0)
-        no_poor = _weighted_sum((probabilities < threshold_total).astype(float), weights)
+        no_poor = _weighted_sum((probabilities < threshold_total_arr).astype(float), weights)
 
         data.append(
             {
@@ -298,8 +303,8 @@ def population_trend() -> dict[str, Any]:
 def regional_trend(department_id: int) -> dict[str, Any]:
     panel = _ensure_panel()
     department_col = settings.department_id_column
-    threshold_total = _get_threshold("umbral")
-
+    from app.core.thresholds import get_dynamic_threshold_array
+    
     data = []
     department_name = None
     for year in get_years():
@@ -307,9 +312,10 @@ def regional_trend(department_id: int) -> dict[str, Any]:
         if subset.empty:
             continue
         probabilities = _predict_probabilities(subset)
+        threshold_total_arr = get_dynamic_threshold_array(subset, default_val=_get_threshold("umbral"))
         expansion_col = _get_expansion_column(subset)
         weights = subset[expansion_col].to_numpy(dtype=float) if expansion_col else None
-        rate = _weighted_mean((probabilities >= threshold_total).astype(float), weights)
+        rate = _weighted_mean((probabilities >= threshold_total_arr).astype(float), weights)
 
         name_col = _get_department_name_column(subset)
         if name_col and department_name is None:

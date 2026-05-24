@@ -49,9 +49,7 @@ def modelo_info():
     bundle = ModelStore.get_bundle()
     return {
         "anio_test": bundle.test_year,
-        "umbral": bundle.thresholds.get("umbral", 0.5),
-        "umbral_f1": bundle.thresholds.get("umbral_f1", 0.5),
-        "umbral_r80": bundle.thresholds.get("umbral_r80", 0.5),
+        "umbrales": bundle.thresholds,
         "n_features": len(bundle.features),
         "metricas_test": bundle.metrics,
     }

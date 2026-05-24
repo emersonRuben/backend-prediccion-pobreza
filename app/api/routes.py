@@ -57,7 +57,9 @@ def _build_threshold_info() -> ThresholdInfo:
     )
 
 
-def _build_prediction_items(predictions: list[float], threshold: float) -> list[PredictionItem]:
+def _build_prediction_items(predictions: list[float], threshold: float | list[float]) -> list[PredictionItem]:
+    if isinstance(threshold, list):
+        return [PredictionItem(prediction=value, umbral_global=thresh) for value, thresh in zip(predictions, threshold)]
     return [PredictionItem(prediction=value, umbral_global=threshold) for value in predictions]
 
 
@@ -90,10 +92,10 @@ def predict(payload: PredictRequest):
     if not ModelStore.is_loaded():
         raise HTTPException(status_code=503, detail="Model not loaded")
 
-    predictions, _ = predict_records(payload.records)
+    predictions, _, thresholds = predict_records(payload.records)
     threshold_info = _build_threshold_info()
     return PredictResponse(
-        predictions=_build_prediction_items(predictions, threshold_info.umbral_global),
+        predictions=_build_prediction_items(predictions, thresholds),
         threshold_info=threshold_info,
     )
 
@@ -103,7 +105,7 @@ def predict_proba(payload: PredictRequest):
     if not ModelStore.is_loaded():
         raise HTTPException(status_code=503, detail="Model not loaded")
 
-    _, probabilities = predict_records(payload.records)
+    _, probabilities, _ = predict_records(payload.records)
     return PredictProbaResponse(
         probabilities=probabilities,
         threshold_info=_build_threshold_info(),
@@ -116,12 +118,12 @@ def predict_features(payload: PredictFeaturesRequest):
         raise HTTPException(status_code=503, detail="Model not loaded")
 
     try:
-        predictions, _ = predict_feature_records(payload.records, settings.feature_columns)
+        predictions, _, thresholds = predict_feature_records(payload.records, settings.feature_columns)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     threshold_info = _build_threshold_info()
     return PredictResponse(
-        predictions=_build_prediction_items(predictions, threshold_info.umbral_global),
+        predictions=_build_prediction_items(predictions, thresholds),
         threshold_info=threshold_info,
     )
 
@@ -132,7 +134,7 @@ def predict_features_proba(payload: PredictFeaturesRequest):
         raise HTTPException(status_code=503, detail="Model not loaded")
 
     try:
-        _, probabilities = predict_feature_records(payload.records, settings.feature_columns)
+        _, probabilities, _ = predict_feature_records(payload.records, settings.feature_columns)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     return PredictProbaResponse(
@@ -148,12 +150,12 @@ async def predict_parquet(file: UploadFile = File(...)):
 
     data = await file.read()
     try:
-        predictions, _ = predict_parquet_bytes(data, settings.feature_columns)
+        predictions, _, thresholds = predict_parquet_bytes(data, settings.feature_columns)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     threshold_info = _build_threshold_info()
     return PredictResponse(
-        predictions=_build_prediction_items(predictions, threshold_info.umbral_global),
+        predictions=_build_prediction_items(predictions, thresholds),
         threshold_info=threshold_info,
     )
 
@@ -165,7 +167,7 @@ async def predict_parquet_proba(file: UploadFile = File(...)):
 
     data = await file.read()
     try:
-        _, probabilities = predict_parquet_bytes(data, settings.feature_columns)
+        _, probabilities, _ = predict_parquet_bytes(data, settings.feature_columns)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     return PredictProbaResponse(
@@ -185,12 +187,12 @@ def predict_parquet_default():
 
     data = path.read_bytes()
     try:
-        predictions, _ = predict_parquet_bytes(data, settings.feature_columns)
+        predictions, _, thresholds = predict_parquet_bytes(data, settings.feature_columns)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     threshold_info = _build_threshold_info()
     return PredictResponse(
-        predictions=_build_prediction_items(predictions, threshold_info.umbral_global),
+        predictions=_build_prediction_items(predictions, thresholds),
         threshold_info=threshold_info,
     )
 
@@ -206,7 +208,7 @@ def predict_parquet_default_proba():
 
     data = path.read_bytes()
     try:
-        _, probabilities = predict_parquet_bytes(data, settings.feature_columns)
+        _, probabilities, _ = predict_parquet_bytes(data, settings.feature_columns)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     return PredictProbaResponse(

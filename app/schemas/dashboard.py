@@ -14,9 +14,7 @@ class HealthResponse(BaseModel):
 
 class ModeloInfoResponse(BaseModel):
     anio_test: int | None
-    umbral: float
-    umbral_f1: float
-    umbral_r80: float
+    umbrales: dict[str, float]
     n_features: int
     metricas_test: dict[str, Any] | None
 
@@ -90,7 +88,7 @@ class TendenciaRegionalResponse(BaseModel):
 
 class PredictObservacionesRequest(BaseModel):
     observaciones: list[dict[str, Any]] = Field(..., min_length=1)
-    umbral_tipo: Literal["umbral", "umbral_f1", "umbral_r80"] = "umbral_f1"
+    umbral_tipo: Literal["umbral", "umbral_f1", "umbral_r80"] = "umbral"
 
 
 class PredictObservacionesResultado(BaseModel):
