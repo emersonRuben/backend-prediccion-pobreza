@@ -1,4 +1,5 @@
 from contextlib import asynccontextmanager
+import gc
 import logging
 
 import pandas as pd
@@ -27,7 +28,15 @@ async def lifespan(app: FastAPI):
 
     try:
         panel = pd.read_parquet(settings.panel_path)
+        
+        # Optimize memory usage to prevent Heroku R14 error
+        for col in panel.select_dtypes(include=['float64']).columns:
+            panel[col] = panel[col].astype('float32')
+        for col in panel.select_dtypes(include=['int64']).columns:
+            panel[col] = panel[col].astype('int32')
+            
         PanelStore.set_panel(panel)
+        gc.collect()
     except FileNotFoundError:
         if settings.panel_required:
             raise
