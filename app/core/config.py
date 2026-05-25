@@ -10,7 +10,10 @@ class Settings(BaseSettings):
     panel_path: str = "datasets/panel_procesado.parquet"
     model_required: bool = True
     panel_required: bool = True
-    cors_origins: list[str] = ["http://localhost:3000"]
+    cors_origins: list[str] = [
+        "http://localhost:3000",
+        "https://frontend-prediccion-pobreza.vercel.app",
+    ]
     threshold_global: float = 0.5355
     test_year: int | None = 2024
     test_households: int | None = 33691
