@@ -15,7 +15,7 @@ from app.schemas.predict import (
     ThresholdInfo,
     PredictionItem,
 )
-from app.services.predict import predict_records, predict_parquet_bytes, predict_feature_records
+from app.services.predict import predict_records, predict_parquet_file, predict_feature_records
 
 router = APIRouter()
 
@@ -148,9 +148,8 @@ async def predict_parquet(file: UploadFile = File(...)):
     if not ModelStore.is_loaded():
         raise HTTPException(status_code=503, detail="Model not loaded")
 
-    data = await file.read()
     try:
-        predictions, _, thresholds = predict_parquet_bytes(data, settings.feature_columns)
+        predictions, _, thresholds = predict_parquet_file(file.file, settings.feature_columns)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     threshold_info = _build_threshold_info()
@@ -165,9 +164,8 @@ async def predict_parquet_proba(file: UploadFile = File(...)):
     if not ModelStore.is_loaded():
         raise HTTPException(status_code=503, detail="Model not loaded")
 
-    data = await file.read()
     try:
-        _, probabilities, _ = predict_parquet_bytes(data, settings.feature_columns)
+        _, probabilities, _ = predict_parquet_file(file.file, settings.feature_columns)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     return PredictProbaResponse(
@@ -185,9 +183,9 @@ def predict_parquet_default():
     if not path.exists():
         raise HTTPException(status_code=404, detail="Dataset not found")
 
-    data = path.read_bytes()
     try:
-        predictions, _, thresholds = predict_parquet_bytes(data, settings.feature_columns)
+        with path.open("rb") as f:
+            predictions, _, thresholds = predict_parquet_file(f, settings.feature_columns)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     threshold_info = _build_threshold_info()
@@ -206,9 +204,9 @@ def predict_parquet_default_proba():
     if not path.exists():
         raise HTTPException(status_code=404, detail="Dataset not found")
 
-    data = path.read_bytes()
     try:
-        _, probabilities, _ = predict_parquet_bytes(data, settings.feature_columns)
+        with path.open("rb") as f:
+            _, probabilities, _ = predict_parquet_file(f, settings.feature_columns)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     return PredictProbaResponse(

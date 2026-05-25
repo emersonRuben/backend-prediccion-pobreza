@@ -1,3 +1,4 @@
+import pyarrow.parquet as pq
 from io import BytesIO
 
 import numpy as np
@@ -102,40 +103,54 @@ def predict_feature_records(
     return [float(value) for value in predictions], prob_list, thresholds_arr.tolist()
 
 
-def predict_parquet_bytes(
-    data: bytes,
+def predict_parquet_file(
+    file_obj,
     columns: list[str] | None,
 ) -> tuple[list[float], list[list[float]] | None, list[float]]:
-    if not data:
+    if not file_obj:
         raise ValueError("Empty parquet payload")
 
-    df = pd.read_parquet(BytesIO(data))
+    pf = pq.ParquetFile(file_obj)
     
-    default_threshold = ModelStore.get_bundle().thresholds.get("umbral", 0.5)
-    thresholds_arr = get_dynamic_threshold_array(df, default_val=default_threshold)
+    all_predictions = []
+    all_probabilities = []
+    all_thresholds = []
     
-    if columns:
-        missing = [column for column in columns if column not in df.columns]
-        if missing:
-            missing_text = ", ".join(missing)
-            raise ValueError(f"Missing columns: {missing_text}")
-        df_model = df[columns]
-    else:
-        df_model = df.apply(pd.to_numeric, errors="coerce")
-        df_model = df_model.dropna(axis=1, how="all")
-        df_model = df_model.dropna(axis=1, how="any")
-
-    if df_model.empty:
-        raise ValueError("No numeric columns available for prediction")
-
-    matrix = df_model.to_numpy(dtype=float)
     model = ModelStore.get_model()
-    probabilities = _predict_proba_with_fallback(model, matrix)
-    
-    if probabilities is not None:
-        predictions = _apply_thresholds(probabilities, thresholds_arr)
-    else:
-        predictions = _predict_with_fallback(model, matrix)
+    default_threshold = ModelStore.get_bundle().thresholds.get("umbral", 0.5)
+
+    for batch in pf.iter_batches(batch_size=2500):
+        df = batch.to_pandas()
         
-    prob_list = probabilities.tolist() if probabilities is not None else None
-    return [float(value) for value in predictions], prob_list, thresholds_arr.tolist()
+        thresholds_arr = get_dynamic_threshold_array(df, default_val=default_threshold)
+        
+        if columns:
+            missing = [column for column in columns if column not in df.columns]
+            if missing:
+                missing_text = ", ".join(missing)
+                raise ValueError(f"Missing columns: {missing_text}")
+            df_model = df[columns]
+        else:
+            df_model = df.apply(pd.to_numeric, errors="coerce")
+            df_model = df_model.dropna(axis=1, how="all")
+            df_model = df_model.dropna(axis=1, how="any")
+
+        if df_model.empty:
+            continue
+
+        matrix = df_model.to_numpy(dtype=float)
+        probabilities = _predict_proba_with_fallback(model, matrix)
+        
+        if probabilities is not None:
+            predictions = _apply_thresholds(probabilities, thresholds_arr)
+            all_probabilities.extend(probabilities.tolist())
+        else:
+            predictions = _predict_with_fallback(model, matrix)
+            
+        all_predictions.extend([float(value) for value in predictions])
+        all_thresholds.extend(thresholds_arr.tolist())
+
+    if not all_predictions:
+        raise ValueError("No numeric columns available for prediction or file is empty")
+
+    return all_predictions, (all_probabilities if all_probabilities else None), all_thresholds
